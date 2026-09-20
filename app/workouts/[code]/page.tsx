@@ -32,6 +32,8 @@ type SetEntry = {
   done: boolean;
 };
 
+function timestamp() { return Date.now(); }
+
 export default function WorkoutPage() {
   const params = useParams<{ code: string }>();
 
@@ -46,8 +48,11 @@ export default function WorkoutPage() {
 
   const [rest, setRest] = useState(0);
   const [finished, setFinished] = useState(false);
+  const [savingSet, setSavingSet] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sessionPromiseRef = useRef<Promise<string> | null>(null);
 
   useEffect(() => {
     getProfile().then(setProfile);
@@ -68,14 +73,19 @@ export default function WorkoutPage() {
     if (sessionId) {
       return sessionId;
     }
-
-    const id = await startWorkoutSession(day, workout.code);
-
-    setSessionId(id);
-    setStartedAt(Date.now());
-    setFinished(false);
-
-    return id;
+    if (!sessionPromiseRef.current) {
+      sessionPromiseRef.current = startWorkoutSession(day, workout.code);
+    }
+    try {
+      const id = await sessionPromiseRef.current;
+      setSessionId(id);
+      setStartedAt(timestamp());
+      setFinished(false);
+      return id;
+    } catch (cause) {
+      sessionPromiseRef.current = null;
+      throw cause;
+    }
   }
 
   function setKey(exercise: string, setNo: number) {
@@ -115,9 +125,10 @@ export default function WorkoutPage() {
   }
 
   async function toggle(exerciseKey: string, setNo: number) {
-    const activeSession = await start();
-
     const k = setKey(exerciseKey, setNo);
+    if (savingSet) return;
+    setSavingSet(k);
+    setError("");
 
     const current: SetEntry = entries[k] ?? {
       weight: "",
@@ -130,22 +141,22 @@ export default function WorkoutPage() {
       done: !current.done,
     };
 
-    setEntries((currentEntries) => ({
-      ...currentEntries,
-      [k]: next,
-    }));
-
-    if (next.done) {
+    try {
+      const activeSession = await start();
       await saveWorkoutSet(
         activeSession,
         exerciseKey,
         setNo,
         next.weight ? Number(next.weight) : null,
         next.reps ? Number(next.reps) : null,
-        true
+        next.done
       );
-
-      beginRest(60);
+      setEntries((currentEntries) => ({ ...currentEntries, [k]: next }));
+      if (next.done) beginRest(60);
+    } catch {
+      setError("Не удалось сохранить подход. Проверьте соединение и попробуйте ещё раз.");
+    } finally {
+      setSavingSet(null);
     }
   }
 
@@ -180,7 +191,7 @@ export default function WorkoutPage() {
 
     const duration = Math.max(
       1,
-      Math.round((Date.now() - (startedAt ?? Date.now())) / 60000)
+      Math.round((timestamp() - (startedAt ?? timestamp())) / 60000)
     );
 
     await finishWorkoutSession(sessionId, day, duration);
@@ -225,7 +236,7 @@ export default function WorkoutPage() {
 
             <div className="hero-actions">
               {!sessionId ? (
-                <button className="btn" onClick={start}>
+                <button className="btn" onClick={() => { void start().catch(() => setError("Не удалось начать тренировку.")); }}>
                   <Play size={17} />
                   Начать
                 </button>
@@ -237,6 +248,8 @@ export default function WorkoutPage() {
               )}
             </div>
           </div>
+
+          {error && <div className="notice" role="alert">{error}</div>}
 
           {finished && (
             <div
@@ -438,6 +451,7 @@ export default function WorkoutPage() {
                                 className={`check ${
                                   entry.done ? "done" : ""
                                 }`}
+                                disabled={savingSet !== null}
                                 onClick={() =>
                                   toggle(
                                     exercise.key,

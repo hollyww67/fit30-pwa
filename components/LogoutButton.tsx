@@ -10,6 +10,7 @@ export default function LogoutButton() {
 
   async function logout() {
     const supabase = createClient();
+    if (!supabase) return;
 
     await supabase.auth.signOut();
 

@@ -10,7 +10,7 @@ import { localDateString } from "@/lib/date";
 export default function ProgressPage(){
   const date=localDateString(); const [profile,setProfile]=useState<Profile|null>(null); const [checkins,setCheckins]=useState<DailyCheckin[]>([]); const [measurements,setMeasurements]=useState<Measurement[]>([]); const [weight,setWeight]=useState(""); const [m,setM]=useState<Measurement>({date}); const [saved,setSaved]=useState(false);
   async function refresh(){const [p,c,ms]=await Promise.all([getProfile(),getCheckins(),getMeasurements()]);setProfile(p);setCheckins(c);setMeasurements(ms)}
-  useEffect(()=>{refresh()},[]);
+  useEffect(()=>{void Promise.all([getProfile(),getCheckins(),getMeasurements()]).then(([p,c,ms])=>{setProfile(p);setCheckins(c);setMeasurements(ms)});},[]);
   const lastWeight=useMemo(()=>[...checkins].reverse().find(x=>typeof x.weight_kg==="number")?.weight_kg,[checkins]);
   const change=lastWeight!=null?(Number(profile?.start_weight_kg??85)-Number(lastWeight)):0;
   const pct=Math.max(0,Math.min(100,(change/(Number(profile?.start_weight_kg??85)-Number(profile?.target_weight_kg??62.5)))*100));

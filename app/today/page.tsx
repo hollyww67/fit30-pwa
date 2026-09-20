@@ -16,11 +16,16 @@ export default function TodayPage() {
   const [checkin, setCheckin] = useState<DailyCheckin>({ date, workout_status: "not_started" });
   const [mealChecks, setMealChecks] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([getProfile(), getCheckin(date), getMealChecks(date)]).then(([p, c, m]) => {
-      setProfile(p); setCheckin(c); setMealChecks(m);
-    });
+    let active = true;
+    Promise.all([getProfile(), getCheckin(date), getMealChecks(date)])
+      .then(([p, c, m]) => { if (active) { setProfile(p); setCheckin(c); setMealChecks(m); } })
+      .catch(() => { if (active) setError("Не удалось загрузить данные. Проверьте соединение и обновите страницу."); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [date]);
 
   const programDayNumber = useMemo(() => getCurrentProgramDay(profile?.start_date), [profile?.start_date]);
@@ -30,14 +35,17 @@ export default function TodayPage() {
 
   async function patchCheckin(patch: Partial<DailyCheckin>) {
     const next = { ...checkin, ...patch, date };
-    setCheckin(next); setSaving(true);
-    try { await saveCheckin(next); } finally { setSaving(false); }
+    setSaving(true); setError("");
+    try { await saveCheckin(next); setCheckin(next); }
+    catch { setError("Не удалось сохранить данные. Попробуйте ещё раз."); }
+    finally { setSaving(false); }
   }
 
   async function toggleMeal(key: string) {
     const next = !mealChecks[key];
-    setMealChecks((x) => ({ ...x, [key]: next }));
-    await setMealCheck(date, key, next);
+    setError("");
+    try { await setMealCheck(date, key, next); setMealChecks((x) => ({ ...x, [key]: next })); }
+    catch { setError("Не удалось сохранить питание. Попробуйте ещё раз."); }
   }
 
   const caloriesTarget = profile?.calories_target ?? 1700;
@@ -56,6 +64,8 @@ export default function TodayPage() {
     <AppShell>
       <main className="page">
         <div className="container">
+          {error && <div className="notice" role="alert">{error}</div>}
+          {loading && <div className="card" role="status">Загружаем данные…</div>}
           <div className="hero-row">
             <div>
               <div className="eyebrow">День {programDayNumber} из 30</div>

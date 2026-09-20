@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, ChevronLeft, ChevronRight } from "lucide-react";
 import AppShell from "@/components/AppShell";
 import { getMealChecks, getProfile, setMealCheck, type Profile } from "@/lib/data/store";
@@ -12,7 +12,7 @@ export default function NutritionPage() {
   const [profile,setProfile] = useState<Profile|null>(null); const [day,setDay] = useState(1); const [checks,setChecks] = useState<Record<string,boolean>>({});
   useEffect(()=>{getProfile().then((p)=>{setProfile(p);setDay(getCurrentProgramDay(p.start_date));});},[]);
   const programDay = getProgramDay(day); const meal = meals[programDay.menu-1];
-  const date = useMemo(()=> profile?.start_date ? dayDate(profile.start_date,day) : new Date(),[profile?.start_date,day]);
+  const date = profile?.start_date ? dayDate(profile.start_date,day) : new Date();
   const dateKey = profile?.start_date ? `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,"0")}-${String(date.getDate()).padStart(2,"0")}` : localDateString(date);
   useEffect(()=>{getMealChecks(dateKey).then(setChecks);},[dateKey]);
   async function toggle(key:string){const next=!checks[key];setChecks(x=>({...x,[key]:next}));await setMealCheck(dateKey,key,next)}

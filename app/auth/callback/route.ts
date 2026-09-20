@@ -8,9 +8,8 @@ export async function GET(request: Request) {
   const code =
     requestUrl.searchParams.get("code");
 
-  const next =
-    requestUrl.searchParams.get("next") ??
-    "/today";
+  const candidate = requestUrl.searchParams.get("next") ?? "/today";
+  const next = candidate === "/auth/update-password" ? candidate : "/today";
 
   if (code) {
     const supabase = await createClient();

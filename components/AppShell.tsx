@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CalendarDays, Dumbbell, Home, LineChart, UtensilsCrossed } from "lucide-react";
-import { isCloudMode } from "@/lib/data/store";
 
 const nav = [
   { href: "/today", label: "Сегодня", icon: Home },
@@ -15,7 +14,6 @@ const nav = [
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const cloud = isCloudMode();
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -24,10 +22,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <span className="brand-mark">F</span>
             <span>Fit30</span>
           </Link>
-          <div className="cloud-pill" title={cloud ? "Supabase подключён" : "Демо-режим: данные хранятся на устройстве"}>
-            <span className="cloud-dot" style={!cloud ? { background: "#ffd166" } : undefined} />
-            {cloud ? "Cloud sync" : "Demo mode"}
-          </div>
+          <div className="cloud-pill"><span className="cloud-dot" /> FIT30</div>
         </div>
       </header>
       {children}

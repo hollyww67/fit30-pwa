@@ -13,6 +13,7 @@ export default function UpdatePasswordPage() {
 
   const [password, setPassword] =
     useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const [loading, setLoading] =
     useState(false);
@@ -25,10 +26,24 @@ export default function UpdatePasswordPage() {
   ) {
     event.preventDefault();
 
+    if (password.length < 8) {
+      setError("Пароль должен содержать не менее 8 символов.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("Пароли не совпадают.");
+      return;
+    }
+
     setLoading(true);
     setError("");
 
     const supabase = createClient();
+    if (!supabase) {
+      setError("Сервис входа временно недоступен.");
+      setLoading(false);
+      return;
+    }
 
     const { error } =
       await supabase.auth.updateUser({
@@ -75,13 +90,25 @@ export default function UpdatePasswordPage() {
               type="password"
               value={password}
               required
-              minLength={6}
-              placeholder="Новый пароль"
+              minLength={8}
+              autoComplete="new-password"
+              placeholder="Новый пароль, минимум 8 символов"
               onChange={(event) =>
                 setPassword(
                   event.target.value
                 )
               }
+            />
+
+            <input
+              className="input"
+              type="password"
+              value={confirmPassword}
+              required
+              minLength={8}
+              autoComplete="new-password"
+              placeholder="Повтори новый пароль"
+              onChange={(event) => setConfirmPassword(event.target.value)}
             />
 
             {error && (

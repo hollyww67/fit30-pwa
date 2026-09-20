@@ -19,6 +19,7 @@ export default function AuthPage() {
   const [mode, setMode] = useState<Mode>("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
 
@@ -28,6 +29,15 @@ export default function AuthPage() {
   async function submit(event: FormEvent) {
     event.preventDefault();
 
+    if (mode === "register" && password.length < 8) {
+      setError("Пароль должен содержать не менее 8 символов.");
+      return;
+    }
+    if (mode === "register" && password !== confirmPassword) {
+      setError("Пароли не совпадают.");
+      return;
+    }
+
     setLoading(true);
     setError("");
     setMessage("");
@@ -35,6 +45,7 @@ export default function AuthPage() {
     const supabase = createClient();
 
     try {
+      if (!supabase) throw new Error("Сервис входа временно недоступен.");
       if (mode === "login") {
         const { error } =
           await supabase.auth.signInWithPassword({
@@ -89,6 +100,7 @@ export default function AuthPage() {
   }
 
   async function resetPassword() {
+    if (loading) return;
     if (!email) {
       setError(
         "Сначала введи email для восстановления пароля."
@@ -102,27 +114,24 @@ export default function AuthPage() {
     setMessage("");
 
     const supabase = createClient();
-
-    const origin = window.location.origin;
-
-    const { error } =
-      await supabase.auth.resetPasswordForEmail(
-        email,
-        {
-          redirectTo:
-            `${origin}/auth/callback?next=/auth/update-password`,
-        }
-      );
-
-    if (error) {
-      setError(error.message);
-    } else {
-      setMessage(
-        "Если аккаунт существует, письмо для восстановления отправлено."
-      );
+    if (!supabase) {
+      setError("Сервис входа временно недоступен.");
+      setLoading(false);
+      return;
     }
 
-    setLoading(false);
+    try {
+      const origin = window.location.origin;
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${origin}/auth/callback?next=/auth/update-password`,
+      });
+      if (error) throw error;
+      setMessage("Если аккаунт существует, письмо для восстановления отправлено.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Не удалось отправить письмо. Попробуй ещё раз.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -235,13 +244,13 @@ export default function AuthPage() {
                   type="password"
                   value={password}
                   required
-                  minLength={6}
+                  minLength={mode === "register" ? 8 : undefined}
                   autoComplete={
                     mode === "login"
                       ? "current-password"
                       : "new-password"
                   }
-                  placeholder="Минимум 6 символов"
+                  placeholder={mode === "register" ? "Минимум 8 символов" : "Пароль"}
                   onChange={(event) =>
                     setPassword(event.target.value)
                   }
@@ -252,6 +261,23 @@ export default function AuthPage() {
                 />
               </div>
             </label>
+
+            {mode === "register" && (
+              <label>
+                <div className="metric-label" style={{ marginBottom: 7 }}>Повтори пароль</div>
+                <input
+                  className="input"
+                  type="password"
+                  value={confirmPassword}
+                  required
+                  minLength={8}
+                  autoComplete="new-password"
+                  placeholder="Повтори пароль"
+                  onChange={(event) => setConfirmPassword(event.target.value)}
+                  style={{ width: "100%" }}
+                />
+              </label>
+            )}
 
             {error && (
               <div className="notice">
@@ -299,6 +325,7 @@ export default function AuthPage() {
             <button
               type="button"
               onClick={resetPassword}
+              disabled={loading}
               className="btn ghost"
               style={{
                 width: "100%",
@@ -333,6 +360,7 @@ export default function AuthPage() {
 
                 setError("");
                 setMessage("");
+                setConfirmPassword("");
               }}
               style={{
                 border: 0,
